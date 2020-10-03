@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                 ('subcategory', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='tourism.SubCategory')),
             ],
         ),
-        migrations.RunPython(transfer_data_from_poi_to_place),
+        # migrations.RunPython(transfer_data_from_poi_to_place),
 
         migrations.RemoveField(
             model_name='pointofinterest',

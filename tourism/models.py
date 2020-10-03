@@ -79,6 +79,7 @@ class Commune(models.Model):
 class Place(models.Model):
     name = models.CharField("nom", max_length=100)
     description = models.TextField(blank=True)
+    published = models.BooleanField("est publié", default=True)
 
 
     category = models.ForeignKey(

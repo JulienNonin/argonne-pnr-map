@@ -110,7 +110,7 @@ class MainRepresentationInline(nested_admin.NestedTabularInline):
 @admin.register(PointOfInterest)
 class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     ## List
-    list_display = ('name_link', 'commune', 'owner', 'note_of_interest', 'is_tour')
+    list_display = ('name_link', 'commune', 'owner', 'note_of_interest', 'published', 'is_tour')
     # list_editable = ('note_of_interest', )
     list_display_links = None
 
@@ -133,7 +133,7 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     is_tour.short_description = "Randonnée"
     is_tour.boolean = True
 
-    actions = ['make_tour']
+    actions = ['make_tour', 'make_published']
 
     def make_tour(self, request, queryset):
         nb_updated = 0
@@ -154,6 +154,11 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
             nb_updated,
         ) % nb_updated, messages.SUCCESS)
     make_tour.short_description = "Convertir en randonnée(s)."
+
+    def make_published(self, request, queryset):
+        queryset.update(published=True)
+    make_published.short_description = "Publier les lieux selectionnés"
+
     
     search_fields = ['name']
     list_filter = ['category', 'commune']
@@ -313,10 +318,16 @@ class TourAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
 
 @admin.register(ZoneOfInterest)
 class ZoneOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
-    list_display = ('name',)
+    list_display = ('name', "published")
+    actions = ("make_published",)
+
     exclude = ('dt_id', 'dt_categories')
     fields = ("name", "description", "category", "subcategory", "zone", "is_always_open")
     inlines = [OpeningPeriodInline]
+
+    def make_published(self, request, queryset):
+        queryset.update(published=True)
+    make_published.short_description = "Publier les lieux selectionnés"
 
     class Media:
         js = (
