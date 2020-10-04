@@ -104,11 +104,11 @@ class Place(models.Model):
 
 
 class PointOfInterest(Place):
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True, blank=True,
-        on_delete=models.SET_NULL
-    )
+    # owner = models.ForeignKey(
+    #     settings.AUTH_USER_MODEL,
+    #     null=True, blank=True,
+    #     on_delete=models.SET_NULL
+    # )
     note_of_interest = models.PositiveSmallIntegerField(
         default=0,
         validators=[

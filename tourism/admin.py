@@ -110,7 +110,7 @@ class MainRepresentationInline(nested_admin.NestedTabularInline):
 @admin.register(PointOfInterest)
 class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     ## List
-    list_display = ('name_link', 'commune', 'owner', 'note_of_interest', 'published', 'is_tour')
+    list_display = ('name_link', 'commune', 'note_of_interest', 'published', 'is_tour')
     # list_editable = ('note_of_interest', )
     list_display_links = None
 
@@ -186,8 +186,8 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
                 'note_of_interest',
                 'location',
                 ('street_address', 'commune'),
-                ('email', 'phone', 'website'),
-                'owner']
+                ('email', 'phone', 'website'),]
+                # 'owner']
         }),
         ("Horaires d'ouverture", {
             # 'classes': ('collapse',),
