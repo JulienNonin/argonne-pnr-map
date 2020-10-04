@@ -4,7 +4,7 @@ from django.contrib.gis import admin
 
 import nested_admin
 
-from .models import MainRepresentation, OpeningHours, OpeningHoursSchema, PointOfInterest
+from .models import MainRepresentation, OpeningHours, OpeningPeriod, PointOfInterest
 
 
 class UserAdmin(AdminSite):
@@ -20,7 +20,7 @@ class OpeningHoursInline(nested_admin.NestedTabularInline):
     model = OpeningHours
 
 class OpeningSchemaInline(nested_admin.NestedTabularInline):
-    model = OpeningHoursSchema
+    model = OpeningPeriod
     inlines = [OpeningHoursInline]
     extra = 0
 

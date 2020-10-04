@@ -5,10 +5,10 @@ from django.views.generic import ListView
 
 from django.contrib.gis.geos import Polygon
 from django.contrib.gis.db import models
-from django.db.models import Value, When, Case, Exists, OuterRef
+from django.db.models import Case, Count, Exists, F, OuterRef, Value, When
 
 
-from .models import Category, Commune, OpeningHoursSchema, OpeningHours, PointOfInterest
+from .models import Category, Commune, OpeningPeriod, OpeningHours, PointOfInterest, SubCategory, Variable
 from . import utils
 
 import datetime
@@ -42,6 +42,16 @@ def ajax_get_view(view_function):
     return wrapper
 
 @ajax_get_view
+def admin_get_subcategory(request):
+    id = request.GET.get('id', '')
+    subcategories = SubCategory.objects.filter(
+        category_id=int(id)
+        ).values('id', 'name')
+    return JsonResponse({"subcategories": list(subcategories)}, status=200)
+    # return HttpResponse(json.dumps(result), content_type="application/json")
+
+
+@ajax_get_view
 def detail(request):
     poi_id = request.GET.get("poi_id", None)
     poi = get_object_or_404(PointOfInterest, pk=poi_id)
@@ -51,11 +61,11 @@ def detail(request):
         date_end = datetime.datetime.strptime(
             request.GET.get("date-to", "9999-12-31"), '%Y-%m-%d'
         ).date()
-        opening_schema = OpeningHoursSchema.objects.filter(
-            poi=poi,
+        opening_schema = OpeningPeriod.objects.filter(
+            place=poi,
             valid_from__lte=date_end,
             valid_through__gte=date_start,
-            # openinghoursschema__openinghours__weekday__in = utils.get_isoweekdays_btw_dates(date_start, date_end),
+            # openingperiod__openinghours__weekday__in = utils.get_isoweekdays_btw_dates(date_start, date_end),
         ).first()
         content = {
             'poi': poi,
@@ -63,8 +73,8 @@ def detail(request):
         }
 
     else: # get current opening_schema
-        opening_schema = OpeningHoursSchema.objects.filter(
-            poi=poi,
+        opening_schema = OpeningPeriod.objects.filter(
+            place=poi,
             valid_from__lte=datetime.date.today(),
             valid_through__gte=datetime.date.today()).first()
         content = {
@@ -75,8 +85,11 @@ def detail(request):
 
 @ajax_get_view
 def visible_poi(request):
+    DAYS_XN = Variable.objects.get_or_create(name="XN", defaults={'value':10})[0].value
+    DAYS_XP = Variable.objects.get_or_create(name="XP", defaults={'value':3})[0].value
     # Retrieve data
     categories = json.loads(request.GET.get("categories", None))
+    name = json.loads(request.GET.get("name", None))
 
     # Retrieve dates
     date_start = datetime.datetime.strptime(
@@ -84,7 +97,7 @@ def visible_poi(request):
         '%Y-%m-%d'
     ).date()
     date_end = datetime.datetime.strptime(
-        request.GET.get("date-to", "9999-12-31"),
+        request.GET.get("date-to", "3000-12-31"),
         '%Y-%m-%d'
     ).date()
 
@@ -102,31 +115,71 @@ def visible_poi(request):
     # geom = geom_new - geom_old # new POis are inside this geometry
 
     # Query
-    valid_openingschemas = OpeningHoursSchema.objects.filter(
-        poi=OuterRef('pk'),
-        valid_from__lte=date_end,
+    date_end_later = date_end + datetime.timedelta(days=DAYS_XN)  # XN
+    date_end_near = date_end + datetime.timedelta(days=DAYS_XP)  # XP
+    openingperiod_later = OpeningPeriod.objects.filter(
+        place=OuterRef('pk'),
+        valid_from__lte=date_end_later,
         valid_through__gte=date_start,
+        openinghours__weekday__in=utils.get_isoweekdays_btw_dates(date_start, date_end_later),
+    )
+    openingperiod_near = openingperiod_later.filter(
+        valid_from__lte=date_end_near,
+        openinghours__weekday__in=utils.get_isoweekdays_btw_dates(date_start, date_end_near),
+    )
+    openingperiod_now = openingperiod_near.filter(
+        valid_from__lte=date_end,
         openinghours__weekday__in=utils.get_isoweekdays_btw_dates(date_start, date_end),
     )
+    
     poi_list = PointOfInterest.objects.filter(
         # location__within=geom_new,
         category__tag__in=categories,
-    ).annotate(open=Exists(valid_openingschemas))
+    ).annotate(
+        num_opening_periods=Count('openingperiod'),
+        opening_score=Case(
+            When(is_always_open=True, then=Value(2)),
+            When(Exists(openingperiod_now), then=Value(5)),
+            When(Exists(openingperiod_near), then=Value(4)),
+            When(Exists(openingperiod_later), then=Value(3)),
+            When(num_opening_periods__gt=0, then=Value(1)),
+            default=Value(0),
+            output_field=models.PositiveSmallIntegerField(),
+        ),
+        # score=F('opening_score') + F('note_of_interest'),
+    )
+
+    if name:
+        poi_by_commune_name = poi_list.filter(commune__name__icontains = name)
+        poi_by_name = poi_list.filter(name__icontains = name)
+        poi_list = poi_by_commune_name.union(poi_by_name)
 
     content = {
-        'poi_list': poi_list.order_by('-open'),
+        'poi_list': poi_list.order_by('-opening_score'),
     }
     return render(request, 'tourism/index/_poi_loader.html', content)
 
 @ajax_get_view
 def best_poi(request):
+    NI_P = Variable.objects.get_or_create(name="P", defaults={'value':3/5})[0].value
     POI_BY_PAGE = 10
     ids = json.loads(request.GET.get("ids", "[]"))
+    whens = [When(pk=id, then=opening_score) for id, opening_score in ids.items()]
     page = int(request.GET.get("page", 0))
-    best_results = PointOfInterest.objects.filter(pk__in = ids).order_by('name')[page*POI_BY_PAGE : (page+1)*POI_BY_PAGE]
+
+    # best_results = PointOfInterest.objects.filter(pk__in = ids).order_by('name')[page*POI_BY_PAGE : (page+1)*POI_BY_PAGE]
+    best_results = PointOfInterest.objects.filter(pk__in=ids.keys()).annotate(
+        opening_score=Case(
+            *whens,
+            default=0,
+            output_field=models.PositiveSmallIntegerField(),
+        ),
+        score= 2 * NI_P * F('note_of_interest') + 2 * (1 - NI_P) * F('opening_score'),
+    ).order_by('-score')[page*POI_BY_PAGE : (page+1)*POI_BY_PAGE]
+
     content = {
         'poi_list': best_results,
-        # 'debug': best_results.count()
+        # 'debug': ids
     }
     return render(request, 'tourism/index/_best_results.html', content)
 

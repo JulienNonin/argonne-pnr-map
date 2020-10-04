@@ -1,5 +1,5 @@
 from django.contrib.gis.geos import Polygon
-from .models import Category, Commune, OpeningHoursSchema, OpeningHours, PointOfInterest
+from .models import Category, Commune, OpeningPeriod, OpeningHours, PointOfInterest
 import datetime
 import json
 
@@ -15,7 +15,7 @@ def get_isoweekdays_btw_dates(d1, d2):
 
 
 def get_opening_schema_for_period(poi, date_start, date_end):
-    return poi.openinghoursschema_set.filter(
+    return poi.openingperiod_set.filter(
         valid_from__lte = date_end,
         valid_through__gte = date_start,
         openinghours__weekday__in = get_isoweekdays_btw_dates(date_start, date_end)

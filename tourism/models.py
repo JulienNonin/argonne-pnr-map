@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import GEOSGeometry
 
@@ -6,10 +7,19 @@ import datetime
 from decimal import Decimal
 # from django.utils.translation import gettext_lazy as _
 
+
+class Variable(models.Model):
+    name = models.CharField(max_length=20, unique=True, editable=False)
+    value = models.FloatField()
+
+    def __str__(self):
+        return f"{self.name}={self.value}"
+
+
 class Category(models.Model):
     name = models.CharField(max_length=150)
     tag = models.CharField(max_length=100, unique=True)
-    order = models.IntegerField("ordre")
+    order = models.IntegerField("ordre", default=100)
 
     light_color = models.CharField(max_length=7, default="#d54363")
     dark_color = models.CharField(max_length=7, default="#a1334b")
@@ -30,6 +40,27 @@ def get_default_category():
     return cat.id
 
 
+def icon_directory_path(instance, filename):
+    return f"icon/{instance.category.tag}/{filename}"
+
+class SubCategory(models.Model):
+    name = models.CharField(max_length=150)
+    icon = models.FileField(upload_to=icon_directory_path, verbose_name="icône")
+    order = models.PositiveIntegerField("ordre")
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.PROTECT,
+        default=get_default_category
+    )
+
+    class Meta:
+        verbose_name="sous-catégorie"
+        verbose_name_plural="sous-catégories"
+
+    def __str__(self):
+        return f"{self.name}"
+
+
 # == Commune ==
 class Commune(models.Model):
     name = models.CharField("nom", max_length=50)
@@ -45,12 +76,44 @@ class Commune(models.Model):
         return f"{self.name}"
 
 # == POIs ==
-class PointOfInterest(models.Model):
+class Place(models.Model):
     name = models.CharField("nom", max_length=100)
+    description = models.TextField(blank=True)
+    published = models.BooleanField("est publié", default=True)
+
+
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.PROTECT,
+        default=get_default_category
+    )
+    subcategory = models.ForeignKey(
+        SubCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    is_always_open = models.BooleanField("est en permanence ouvert", default=False, null=False, blank=False)
+
+    def save(self, *args, **kwargs):
+        ## Check that the selected subcategory belongs to the poi's category
+        if self.subcategory and self.subcategory.category.pk != self.category.pk:
+            self.subcategory = None
+        super().save(*args, **kwargs)
+
+
+class PointOfInterest(Place):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True, blank=True,
         on_delete=models.SET_NULL
+    )
+    note_of_interest = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[
+            MaxValueValidator(5),
+        ]
     )
 
     location = models.PointField("localication")
@@ -65,13 +128,6 @@ class PointOfInterest(models.Model):
     email = models.EmailField(max_length=50, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     website = models.URLField(max_length=200, blank=True)
-    description = models.TextField(blank=True)
-
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.PROTECT,
-        default=get_default_category
-    )
 
     class Meta:
         ordering = ('name',)
@@ -80,9 +136,6 @@ class PointOfInterest(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.commune.name})"
-
-class Place():
-    pass
 
 class Tour(PointOfInterest):
     path = models.MultiLineStringField("parcours", null=True)
@@ -128,13 +181,22 @@ class Event():
     pass
 
 
+class ZoneOfInterest(Place):
+    zone = models.MultiPolygonField("zone")
+
+    class Meta:
+        ordering = ('name',)
+        verbose_name = "zone d'interêt"
+        verbose_name_plural = "zones d'interêt"
+
+
 # == Management of opening hours ==
 def get_valid_through_default():
         return datetime.date(datetime.date.today().year, 12, 31)
 
-class OpeningHoursSchema(models.Model):
+class OpeningPeriod(models.Model):
     """ Opening period """
-    poi = models.ForeignKey(PointOfInterest, on_delete=models.CASCADE)
+    place = models.ForeignKey(Place, on_delete=models.CASCADE)
     valid_from = models.DateField("valable à partir du", default=datetime.date.today)
     valid_through= models.DateField("valable jusqu'au", blank=True, default=get_valid_through_default)
 
@@ -145,7 +207,7 @@ class OpeningHoursSchema(models.Model):
         ordering = ['valid_from', 'valid_through']
 
     def __str__(self):
-        return f"{self.poi.name} ({self.valid_from} - {self.valid_through}"
+        return f"{self.place.name} ({self.valid_from} - {self.valid_through}"
 
 
 
@@ -161,7 +223,7 @@ class OpeningHours(models.Model):
         (7, "Dimanche"),
     ]
 
-    schema = models.ForeignKey(OpeningHoursSchema, on_delete=models.CASCADE)
+    schema = models.ForeignKey(OpeningPeriod, on_delete=models.CASCADE)
     weekday = models.PositiveSmallIntegerField("jour de la semaine", choices=WEEKDAYS)
     from_hour = models.TimeField("heure d'ouverture", null=True)
     to_hour = models.TimeField("heure de fermeture", null=True)
@@ -172,7 +234,7 @@ class OpeningHours(models.Model):
         ordering = ['weekday', 'from_hour']
 
     def __str__(self):
-        return f"{self.schema.poi.name} {self.weekday} ({self.from_hour} - {self.to_hour})"
+        return f"{self.schema.place.name} {self.weekday} ({self.from_hour} - {self.to_hour})"
 
 # == Media ==
 class Media(models.Model):

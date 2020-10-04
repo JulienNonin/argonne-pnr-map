@@ -1,6 +1,15 @@
-<div id="date-filter">
-    <label for="start">du :</label>
-    <input id="start" type="date" value={% now "Y-m-d" %} onchange="onDateChange()">
-    <label for="end">au :</label>
-    <input id="end" type="date" onchange="onDateChange()">
+<div id="other-filters">
+    <div id="name-filter">
+        <label for="name-searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
+        <input type="text" size="40" name="q" value="" id="name-searchbar" autofocus="" autocomplete="off" onkeydown="onInputKeyDown(event)">
+        <div class="btn btn-primary" onclick="onFilterChange()">Valider</div>
+    </div>
+    <div id="date-filter">
+        <label for="start">du :</label>
+        <input id="start" type="date" value={% now "Y-m-d" %} onchange="onDateChange()">
+        <label for="end">au :</label>
+        <input id="end" type="date" onchange="onDateChange()">
+    </div>
+    <div id="unmodifiable-content">
+    </div>
 </div>

@@ -87,7 +87,7 @@
 {% comment %} DEBUG {% endcomment %}
 {% if user.is_authenticated %}
 
-{% for schema in poi.openinghoursschema_set.all %}
+{% for schema in poi.openingperiod_set.all %}
     <div class="debug" style="color:lightgrey; margin-top:15px">
         <span> du {{ schema.valid_from }} au {{ schema.valid_through }} </span>
         {% for day in schema.openinghours_set.all %}

@@ -16,6 +16,11 @@
             <h2 class="title"> {{ poi.name }}</h2>
             <div class="subtitle">
                 <span class="city">{{ poi.commune.name }}</span>
+                {% if user.is_authenticated %}
+                <span class="tag">NI {{ poi.note_of_interest }}</span>
+                <span class="tag">NC {{ poi.opening_score }}</span>
+                <span class="tag tag-red"> {{ poi.score }}</span>
+                {% endif %}
                 {% comment %} <span>
                     {% if poi.open %} Ouvert {% else %} Fermé {% endif %}
                     {{ poi.open }}

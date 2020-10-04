@@ -14,24 +14,45 @@ from django.utils.translation import ngettext
 import decimal
 import nested_admin
 import gpxpy
-from .models import Category, Commune, MainRepresentation, OpeningHours, OpeningHoursSchema, PointOfInterest, Tour
+from .models import Category, Commune, MainRepresentation, OpeningHours, \
+    OpeningPeriod, PointOfInterest, SubCategory, Tour, Variable, ZoneOfInterest
+
+
+@admin.register(Variable)
+class VariableAdin(admin.ModelAdmin):
+    list_display = ('name', 'value')
+    list_display_links = None
+    list_editable = ('value', )
+    # fields = ('value',)
+    readonly_fields = ('name',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 class GeoArgonne(admin.OSMGeoAdmin):
     default_zoom = 10
     default_lon = 554517 # 49.129889
     default_lat = 6297230 #4.981058
 
-class OpeningHoursInline(nested_admin.NestedTabularInline):
-    model = OpeningHours
 
-class OpeningSchemaInline(nested_admin.NestedTabularInline):
-    model = OpeningHoursSchema
-    inlines = [OpeningHoursInline]
-    extra = 0
+@admin.register(Commune)
+class CommuneAdmin(GeoArgonne):
+    fields = [
+        'name',
+        'insee',
+        'postal_code',
+        'in_argonne_pnr',
+        'geom',
+    ]
 
-class MainRepresentationInline(nested_admin.NestedTabularInline):
-    model = MainRepresentation
 
+# == Category ==
+class SubCategoryInline(admin.TabularInline):
+    model = SubCategory
+    extra = 1
 
 class CategoryForm(forms.ModelForm):
     class Meta:
@@ -42,8 +63,9 @@ class CategoryForm(forms.ModelForm):
             'dark_color': forms.widgets.TextInput(attrs={'type': 'color'})
         }
 
+
 @admin.register(Category)
-class CategoryAdmin(GeoArgonne):
+class CategoryAdmin(admin.ModelAdmin):
     # fields = ['name', 'tag']
     form = CategoryForm
     # filter_horizontal = ('questions',)
@@ -67,21 +89,29 @@ class CategoryAdmin(GeoArgonne):
     ordering = ('order', )
     list_editable = ('order', )
     exclude = ('order',)
+    inlines = [SubCategoryInline]
 
-@admin.register(Commune)
-class CommuneAdmin(GeoArgonne):
-    fields = [
-        'name',
-        'insee',
-        'postal_code',
-        'in_argonne_pnr',
-        'geom',
-    ]
+
+# == PointOfInterest ==
+class OpeningHoursInline(nested_admin.NestedTabularInline):
+    model = OpeningHours
+
+
+class OpeningPeriodInline(nested_admin.NestedTabularInline):
+    model = OpeningPeriod
+    inlines = [OpeningHoursInline]
+    extra = 0
+
+
+class MainRepresentationInline(nested_admin.NestedTabularInline):
+    model = MainRepresentation
+
 
 @admin.register(PointOfInterest)
 class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     ## List
-    list_display = ('name_link', 'commune', 'owner', 'is_tour')
+    list_display = ('name_link', 'commune', 'owner', 'note_of_interest', 'published', 'is_tour')
+    # list_editable = ('note_of_interest', )
     list_display_links = None
 
     def name_link(self, poi):
@@ -103,7 +133,7 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     is_tour.short_description = "Randonnée"
     is_tour.boolean = True
 
-    actions = ['make_tour']
+    actions = ['make_tour', 'make_published']
 
     def make_tour(self, request, queryset):
         nb_updated = 0
@@ -124,22 +154,54 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
             nb_updated,
         ) % nb_updated, messages.SUCCESS)
     make_tour.short_description = "Convertir en randonnée(s)."
+
+    def make_published(self, request, queryset):
+        queryset.update(published=True)
+    make_published.short_description = "Publier les lieux selectionnés"
+
     
     search_fields = ['name']
     list_filter = ['category', 'commune']
 
     ## CREATE & UPDATE
-    fields = [
-        'name',
-        'description',
-        'category',
-        'location',
-        ('street_address', 'commune'),
-        ('email', 'phone', 'website'),
-        'owner'
-    ]
+    # fields = [
+    #     'name',
+    #     'description',
+    #     'category',
+    #     'note_of_interest',
+    #     'location',
+    #     ('street_address', 'commune'),
+    #     ('email', 'phone', 'website'),
+    #     'owner',
+    #     ('is_always_open'),
+    # ]
 
-    inlines = [MainRepresentationInline, OpeningSchemaInline]
+    fieldsets = (
+        (None, {
+            'fields': [
+                'name',
+                'description',
+                'category',
+                'subcategory',
+                'note_of_interest',
+                'location',
+                ('street_address', 'commune'),
+                ('email', 'phone', 'website'),
+                'owner']
+        }),
+        ("Horaires d'ouverture", {
+            # 'classes': ('collapse',),
+            'fields': ('is_always_open',),
+        }),
+    )
+
+    inlines = [OpeningPeriodInline, MainRepresentationInline]
+
+    class Media:
+        js = (
+            '/static/admin/js/hide_opening_period.js',
+            '/static/admin/js/subcategory.js',
+        )
 
 # == Tour == 
 class GpxImportForm(forms.Form):
@@ -151,6 +213,7 @@ class GpxImportForm(forms.Form):
             seront mises à jour selon les données fournies par le fichier GPX.",
         initial=True
     )
+
 
 def form_handle_gpx_file(fn):
     def wrapper(self, request, *args, **kwargs):
@@ -251,3 +314,23 @@ class TourAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
         
         self.message_user(request, "Votre fichier GPX a été importé avec succès")
         return redirect("..")
+
+
+@admin.register(ZoneOfInterest)
+class ZoneOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
+    list_display = ('name', "published")
+    actions = ("make_published",)
+
+    exclude = ('dt_id', 'dt_categories')
+    fields = ("name", "description", "category", "subcategory", "zone", "is_always_open")
+    inlines = [OpeningPeriodInline]
+
+    def make_published(self, request, queryset):
+        queryset.update(published=True)
+    make_published.short_description = "Publier les lieux selectionnés"
+
+    class Media:
+        js = (
+        '/static/admin/js/hide_opening_period.js',
+        '/static/admin/js/subcategory.js',
+    )

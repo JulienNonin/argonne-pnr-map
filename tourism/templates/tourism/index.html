@@ -5,7 +5,7 @@
 {% load leaflet_tags %}
 
 
-{% block title %}Carte intéractive{% endblock title %}
+{% block title %}Carte touristique de l'Argonne{% endblock title %}
 {% block style %}
     <link rel="stylesheet" type="text/css" href="{% static 'tourism/style.css' %}">
     {% leaflet_js %}
@@ -75,6 +75,10 @@
     var markerSelected = Object();
     var controlLayers; // leaflet Control.layers
     var categoriesSelected = ["event"] //Array();
+    var loadingDiv = $("<div id=loading class='btn'>").html(
+        "<img id='loading-gif' src={% static 'tourism/ajax-loader.gif' %}>" + 
+        " Chargement"
+    );
 
     var mapBounds;
     var numPage;
@@ -192,6 +196,7 @@
 
     function loadMarkers() {
         // markersLayer.clearLayers();
+        name = $("#name-searchbar").val();
         dateStart = $("#date-filter #start").val() || undefined;
         dateEnd = $("#date-filter #end").val() || undefined;
         //mapBounds = map.getBounds();
@@ -200,11 +205,14 @@
                 "categories": JSON.stringify(categoriesSelected),
                 "date-from": dateStart,
                 "date-to": dateEnd,
+                "name": JSON.stringify(name),
             }
         /*if (boundsChange) {
             data["boundsOld"] = JSON.stringify(mapBoundsPrev);
         }*/
         // $("#loading-img").show();
+        loadingDiv.show();
+        $("#unmodifiable-content").show();
         $.ajax({
             type: 'GET',
             url: "{% url 'tourism:poi_load' %}",
@@ -217,6 +225,8 @@
             },
             complete: function() {
                 // $("#loading-img").hide();
+                loadingDiv.hide();
+                $("#unmodifiable-content").hide();
             },
             error: function(response) {
                 console.log("Échec de la requête AJAX (loadMarkers)");
@@ -231,9 +241,10 @@
         } else {
             numPage = 0
         }
-        var markersIds = Array();
+        var markersIds = Object();
         mainLayer.eachLayer(function(marker) {
-            markersIds.push(parseInt(marker["data-id"]));
+            // markersIds.push(parseInt(marker["data-id"]));
+            markersIds[parseInt(marker["data-id"])] = parseInt(marker["data-opening-score"]);
         });
         $.ajax({
             type: 'GET',
@@ -309,6 +320,15 @@
         loadMarkers();
     }
 
+    function onFilterChange(){
+        loadMarkers();
+    }
+
+    function onInputKeyDown(keyEvent){
+        if (keyEvent.code == "Enter") {
+            loadMarkers();
+        }
+    }
 
     /* ----- Markers ----- */
 
@@ -382,6 +402,11 @@
         map = mmap; // store the object in a variable
         controlLayers = map.layerscontrol;
         mapBounds = map.getBounds();
+
+        $("#name-searchbar").val("");
+        loadingDiv.hide();
+        $("#unmodifiable-content").hide();
+        $("#maCarte").append(loadingDiv);
 
         // Display initial markers
         // createLayersByCategory();
