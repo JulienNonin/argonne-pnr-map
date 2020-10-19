@@ -1,11 +1,22 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator
+from django.contrib.auth.models import User
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import GEOSGeometry
 
 import datetime
 from decimal import Decimal
 # from django.utils.translation import gettext_lazy as _
+
+class CustomUser(User):
+    class Meta:
+        proxy = True
+
+    def __unicode__(self):
+        return self.get_full_name()
+
+    def __str__(self):
+        return self.get_full_name()
 
 
 class Variable(models.Model):
@@ -105,11 +116,11 @@ class Place(models.Model):
 
 
 class PointOfInterest(Place):
-    # owner = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     null=True, blank=True,
-    #     on_delete=models.SET_NULL
-    # )
+    owner = models.ForeignKey(
+        CustomUser,
+        null=True, blank=True,
+        on_delete=models.SET_NULL
+    )
     note_of_interest = models.PositiveSmallIntegerField(
         default=0,
         validators=[

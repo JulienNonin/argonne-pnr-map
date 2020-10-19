@@ -14,7 +14,7 @@ from django.utils.translation import ngettext
 import decimal
 import nested_admin
 import gpxpy
-from .models import Category, Commune, MainRepresentation, OpeningHours, \
+from .models import Category, Commune, CustomUser, MainRepresentation, OpeningHours, \
     OpeningPeriod, PointOfInterest, SubCategory, Tour, Variable, ZoneOfInterest
 
 
@@ -47,6 +47,7 @@ class CommuneAdmin(GeoArgonne):
         'in_argonne_pnr',
         'geom',
     ]
+    search_fields = ["name"]
 
 
 # == Category ==
@@ -93,6 +94,16 @@ class CategoryAdmin(admin.ModelAdmin):
 
 
 # == PointOfInterest ==
+@admin.register(CustomUser)
+class CustomUserAdmin(admin.ModelAdmin):
+    search_fields = ["first_name", "last_name"]
+
+    def get_model_perms(self, request):
+        """
+        Return empty perms dict thus hiding the model from admin index.
+        """
+        return {}
+
 class OpeningHoursInline(nested_admin.NestedTabularInline):
     model = OpeningHours
 
@@ -110,7 +121,7 @@ class MainRepresentationInline(nested_admin.NestedTabularInline):
 @admin.register(PointOfInterest)
 class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     ## List
-    list_display = ('name_link', 'commune', 'note_of_interest', 'published', 'is_tour')
+    list_display = ('name_link', 'commune', 'note_of_interest', 'published', 'owner', 'is_tour')
     # list_editable = ('note_of_interest', )
     list_display_links = None
 
@@ -162,20 +173,6 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     
     search_fields = ['name']
     list_filter = ['category', 'commune']
-
-    ## CREATE & UPDATE
-    # fields = [
-    #     'name',
-    #     'description',
-    #     'category',
-    #     'note_of_interest',
-    #     'location',
-    #     ('street_address', 'commune'),
-    #     ('email', 'phone', 'website'),
-    #     'owner',
-    #     ('is_always_open'),
-    # ]
-
     fieldsets = (
         (None, {
             'fields': [
@@ -186,14 +183,15 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
                 'note_of_interest',
                 'location',
                 ('street_address', 'commune'),
-                ('email', 'phone', 'website'),]
-                # 'owner']
+                ('email', 'phone', 'website'),
+                'owner']
         }),
         ("Horaires d'ouverture", {
             # 'classes': ('collapse',),
             'fields': ('is_always_open',),
         }),
     )
+    autocomplete_fields=["commune", "owner"]
 
     inlines = [OpeningPeriodInline, MainRepresentationInline]
 
