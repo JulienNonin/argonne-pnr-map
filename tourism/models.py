@@ -33,7 +33,8 @@ class Category(models.Model):
 
 def get_default_category():
     cat, created = Category.objects.get_or_create(tag="default", defaults={'order': 100})
-    cat.icon = "grey"
+    cat.light_color = "#95A5A6"
+    cat.dark_color = "#707C7D"
     if not cat.name:
         cat.name = "(pas de catégorie)"
     cat.save()
