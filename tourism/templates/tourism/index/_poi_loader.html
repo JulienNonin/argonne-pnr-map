@@ -26,6 +26,7 @@
     var icon;
     // Add all new markers
     {% for poi in poi_list %}
+        {% comment %} console.log("{{ poi }}"); {% endcomment %}
         var poi_id = "{{ poi.id }}";
         if (markersLoaded[poi_id] == null) { // new marker to display
             var lon = "{{ poi.location.x }}";

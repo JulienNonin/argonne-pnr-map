@@ -8,7 +8,7 @@ from django.contrib.gis.db import models
 from django.db.models import Case, Count, Exists, F, OuterRef, Value, When
 
 
-from .models import Category, Commune, OpeningPeriod, OpeningHours, PointOfInterest, SubCategory, Variable
+from .models import Category, Commune, OpeningPeriod, OpeningHours, Place, PointOfInterest, SubCategory, Variable, ZoneOfInterest
 from . import utils
 
 import datetime
@@ -133,6 +133,7 @@ def visible_poi(request):
     )
     
     poi_list = PointOfInterest.objects.filter(
+        published=True,
         # location__within=geom_new,
         category__tag__in=categories,
     ).annotate(
@@ -156,6 +157,7 @@ def visible_poi(request):
 
     content = {
         'poi_list': poi_list.order_by('-opening_score'),
+        # 'debug': len(poi_list),
     }
     return render(request, 'tourism/index/_poi_loader.html', content)
 

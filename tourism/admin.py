@@ -144,7 +144,7 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     is_tour.short_description = "Randonnée"
     is_tour.boolean = True
 
-    actions = ['make_tour', 'make_published']
+    actions = ['make_tour', 'make_published', 'make_unpublished']
 
     def make_tour(self, request, queryset):
         nb_updated = 0
@@ -168,7 +168,10 @@ class PointOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
 
     def make_published(self, request, queryset):
         queryset.update(published=True)
+    def make_unpublished(self, request, queryset):
+        queryset.update(published=False)
     make_published.short_description = "Publier les lieux selectionnés"
+    make_unpublished.short_description = "Ne pas publier les lieux selectionnés"
 
     
     search_fields = ['name']
@@ -317,7 +320,7 @@ class TourAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
 @admin.register(ZoneOfInterest)
 class ZoneOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
     list_display = ('name', "published")
-    actions = ("make_published",)
+    actions = ("make_published", "make_unpublished")
 
     exclude = ('dt_id', 'dt_categories')
     fields = ("name", "description", "category", "subcategory", "zone", "is_always_open")
@@ -325,7 +328,10 @@ class ZoneOfInterestAdmin(GeoArgonne, nested_admin.NestedModelAdmin):
 
     def make_published(self, request, queryset):
         queryset.update(published=True)
+    def make_unpublished(self, request, queryset):
+        queryset.update(published=False)
     make_published.short_description = "Publier les lieux selectionnés"
+    make_unpublished.short_description = "Ne pas publier les lieux selectionnés"
 
     class Media:
         js = (
