@@ -244,7 +244,8 @@
         var markersIds = Object();
         mainLayer.eachLayer(function(marker) {
             // markersIds.push(parseInt(marker["data-id"]));
-            markersIds[parseInt(marker["data-id"])] = parseInt(marker["data-opening-score"]);
+            if (marker["data-type"] == 'poi') // Only POIs, not ZOIs
+                markersIds[parseInt(marker["data-id"])] = parseInt(marker["data-opening-score"]);
         });
         $.ajax({
             type: 'GET',
@@ -370,11 +371,19 @@
     }
 
     /* ===== Hide unseen markers ===== */
+    function getLatLng(marker) {
+        try {
+            return marker.getLatLng(); // POI
+        } catch(TypeError) {
+            return marker.getBounds(); // ZOI
+        }
+    }
+
     function showMarkersInBounds() {
         mapBounds = map.getBounds();
         // Hide non-visible markers
         mainLayer.eachLayer(function (marker) {
-            if (! mapBounds.contains(marker.getLatLng())) { // not in bounds anymore
+            if (! mapBounds.contains(getLatLng(marker))) { // not in bounds anymore
                 markersHidden.push(marker);
                 mainLayer.removeLayer(marker);
             }
@@ -383,7 +392,7 @@
         var i = markersHidden.length;
         while (i--) {
             marker = markersHidden[i];
-            if (mapBounds.contains(marker.getLatLng())) {
+            if (mapBounds.contains(getLatLng(marker))) {
                 mainLayer.addLayer(marker);
                 markersHidden.splice(i, 1);
             }
@@ -452,6 +461,15 @@
                 }                
             }).addTo(map);
             argonneBoundary.bringToBack();
+            argonneBoundaryShadow = L.geoJSON(json, {
+                style: {
+                    color: "#CADFB5",
+                    weight: 3.5,
+                    fillOpacity: 0,
+                    className: "argonne-geojson",
+                }                
+            }).addTo(map);
+            argonneBoundaryShadow.bringToBack();
         });
     }
 

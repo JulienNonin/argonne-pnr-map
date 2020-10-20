@@ -132,7 +132,7 @@ def visible_poi(request):
         openinghours__weekday__in=utils.get_isoweekdays_btw_dates(date_start, date_end),
     )
     
-    poi_list = PointOfInterest.objects.filter(
+    poi_list = Place.objects.filter(
         published=True,
         # location__within=geom_new,
         category__tag__in=categories,
@@ -156,7 +156,7 @@ def visible_poi(request):
         poi_list = poi_by_commune_name.union(poi_by_name)
 
     content = {
-        'poi_list': poi_list.order_by('-opening_score'),
+        'place_list': poi_list.order_by('-opening_score'),
         # 'debug': len(poi_list),
     }
     return render(request, 'tourism/index/_poi_loader.html', content)

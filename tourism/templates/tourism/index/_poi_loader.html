@@ -1,11 +1,12 @@
 {% load l10n %}
+{% load place_tags %}
 
 {% if error %}
 <p class="tag"> {{ error }}</p>
 {% else %}
 
-{% comment %} {% if poi_list %} {% endcomment %}
-<h1 id="results-title">{{ poi_list.count }} Résultat{{ poi_list.count|pluralize}} </h1>
+{% comment %} {% if place_list %} {% endcomment %}
+<h1 id="results-title">{{ place_list.count }} Résultat{{ place_list.count|pluralize}} </h1>
 {% comment %} {% endif %} {% endcomment %}
 {% comment %} {% include "tourism/index/_date.html" %}   {% endcomment %}
 
@@ -25,46 +26,82 @@
     var markersLoadedNew = Object(); // key: id -> value: leaflet_id
     var icon;
     // Add all new markers
-    {% for poi in poi_list %}
-        {% comment %} console.log("{{ poi }}"); {% endcomment %}
-        var poi_id = "{{ poi.id }}";
-        if (markersLoaded[poi_id] == null) { // new marker to display
-            var lon = "{{ poi.location.x }}";
-            var lat = "{{ poi.location.y }}";
-            {% if poi.opening_score >= 3 %}
-                icon = getIcon("{{ poi.category.tag }}", "{{ poi.category.light_color }}", "{{ poi.category.dark_color }}");
-            {% else %}
-                icon = getSmallIcon("{{ poi.category.tag }}", "{{ poi.category.dark_color }}");
-            {% endif %}
-            var marker = L.marker([lat, lon], {
-                icon: icon
-            });
-            marker.on('click', onMarkerClick);
-            marker['data-id'] = poi_id;
-            marker['data-opening-score'] = "{{ poi.opening_score }}";
-            mainLayer.addLayer(marker);
-            // markersLayers["{{ poi.category.tag }}"].addLayer(marker);
-            markersLoadedNew[poi_id] = marker._leaflet_id;
-            
-            if ("{{ poi.tour }}") { // TOUR : display path
-                var tour_path = '{{ poi.tour.path.json | safe }}';
-                var tour_path_geo = L.geoJSON(JSON.parse(tour_path), {
-                    style: {
-                        color: "#a05a2c",
-                        opacity: 0.7,
-                    },
-                    bubblingMouseEvents: false, // prevent click on map to be triggered
-                });
-                tour_path_geo.on('click', onTourClick);
-                tour_path_geo.addTo(map);
+    {% for place in place_list %}
 
-                // Bind path with its marker
-                tour_path_geo['data-marker'] = marker;
-                marker['data-tour'] = tour_path_geo;
+        /* POINT OF INTEREST */
+        {% with poi=place.pointofinterest %}
+        {% if poi %}
+            var poi_id = "{{ poi.id }}";
+            if (markersLoaded[poi_id] == null) { // new marker to display
+                var lon = "{{ poi.location.x }}";
+                var lat = "{{ poi.location.y }}";
+                {% if poi.opening_score >= 3 %}
+                    icon = getIcon("{{ poi.category.tag }}", "{{ poi.category.light_color }}", "{{ poi.category.dark_color }}");
+                {% else %}
+                    icon = getSmallIcon("{{ poi.category.tag }}", "{{ poi.category.dark_color }}");
+                {% endif %}
+                var marker = L.marker([lat, lon], {
+                    icon: icon
+                });
+                marker.on('click', onMarkerClick);
+                marker['data-id'] = poi_id;
+                marker['data-type'] = "poi";
+                marker['data-opening-score'] = "{{ poi.opening_score }}";
+                mainLayer.addLayer(marker);
+                // markersLayers["{{ poi.category.tag }}"].addLayer(marker);
+                markersLoadedNew[poi_id] = marker._leaflet_id;
+                
+                if ("{{ poi.tour }}") { // TOUR : display path
+                    var tour_path = '{{ poi.tour.path.json | safe }}';
+                    var tour_path_geo = L.geoJSON(JSON.parse(tour_path), {
+                        style: {
+                            color: "#a05a2c",
+                            opacity: 0.7,
+                        },
+                        bubblingMouseEvents: false, // prevent click on map to be triggered
+                    });
+                    tour_path_geo.on('click', onTourClick);
+                    tour_path_geo.addTo(map);
+
+                    // Bind path with its marker
+                    tour_path_geo['data-marker'] = marker;
+                    marker['data-tour'] = tour_path_geo;
+                }
+            } else {
+                markersLoadedNew[poi_id] = markersLoaded[poi_id]
             }
-        } else {
-            markersLoadedNew[poi_id] = markersLoaded[poi_id]
-        }
+
+        {% endif %}
+        {% endwith %}
+
+        /* ZONE OF INTEREST */
+        {% with zoi=place.zoneofinterest %}
+        {% if zoi %}
+            var zoi_id = "{{ zoi.id }}";
+            if (markersLoaded[zoi_id] == null) {
+                // console.log("ZOI", "{{zoi.id}}", "{{zoi.name}}");
+                var zone_path = '{{ zoi.zone.json|safe }}';
+                var zone_path_geo = L.geoJSON(JSON.parse(zone_path), {
+                    style: {
+                        color: "{{zoi.category.dark_color}}",
+                        opacity: 0.7,
+                        fillColor: "{{zoi.category.light_color}}",
+                        weight:1.5,
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup("{{ zoi.name }}")
+                    }
+                    // bubblingMouseEvents: false, // prevent click on map to be triggered
+                });
+                // zone_path_geo.on('click', onTourClick);
+                zone_path_geo['data-type'] = "zoi";
+                mainLayer.addLayer(zone_path_geo);
+                markersLoadedNew[zoi_id] = zone_path_geo._leaflet_id;
+            } else {
+                markersLoadedNew[zoi_id] = markersLoaded[zoi_id];
+            }
+        {% endif %}
+        {% endwith %}
     {% endfor %}
 
     // console.log("markersLoaded New", markersLoadedNew);
