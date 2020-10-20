@@ -20,6 +20,9 @@ from django.urls import include, path
 
 from tourism.admin_contrib import user_admin_site
 
+admin.site.index_template = 'admin/custom_index.html'
+admin.autodiscover()
+
 urlpatterns = [
     path('', include('tourism.urls')),
     path('admin/', admin.site.urls),
