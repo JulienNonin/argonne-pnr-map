@@ -35,7 +35,7 @@
             if (markersLoaded[poi_id] == null) { // new marker to display
                 var lon = "{{ poi.location.x }}";
                 var lat = "{{ poi.location.y }}";
-                {% if poi.opening_score >= 3 %}
+                {% if place.opening_score >= 3 %}
                     icon = getIcon("{{ poi.category.tag }}", "{{ poi.category.light_color }}", "{{ poi.category.dark_color }}");
                 {% else %}
                     icon = getSmallIcon("{{ poi.category.tag }}", "{{ poi.category.dark_color }}");
@@ -46,7 +46,7 @@
                 marker.on('click', onMarkerClick);
                 marker['data-id'] = poi_id;
                 marker['data-type'] = "poi";
-                marker['data-opening-score'] = "{{ poi.opening_score }}";
+                marker['data-opening-score'] = "{{ place.opening_score }}";
                 mainLayer.addLayer(marker);
                 // markersLayers["{{ poi.category.tag }}"].addLayer(marker);
                 markersLoadedNew[poi_id] = marker._leaflet_id;
